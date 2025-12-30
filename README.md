@@ -5,7 +5,7 @@ A professional, hierarchical survey management system designed for real-time fee
 ---
 
 ## 🚀 Live Demo Link
-**[CLICK HERE TO VIEW THE APP](https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/)** *(Note: Replace YOUR_USERNAME and YOUR_REPO_NAME with your actual GitHub details after deployment)*
+**[CLICK HERE TO VIEW THE APP](https://ggkh-autogenix.github.io/survey-app/))** 
 
 ---
 

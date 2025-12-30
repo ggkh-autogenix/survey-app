@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SurveyEngine Pro - Final POC</title>
+    <title>SurveyEngine Pro - Recursive Fix</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,12 +23,12 @@
         .tree-line::before { content: ""; position: absolute; top: 1.2rem; left: 0; width: 0.5rem; border-top: 2px dashed #cbd5e1; }
     </style>
 </head>
-<body class="bg-slate-100">
+<body class="bg-slate-50">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const DB_KEY = 'SURVEY_FINAL_ULTIMATE_POC';
+        const DB_KEY = 'SURVEY_FINAL_RECURSIVE_V3';
 
         function App() {
             const [view, setView] = useState('user');
@@ -45,7 +45,6 @@
                 <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative">
                     <header className="bg-indigo-950 pt-12 pb-6 px-6 text-white rounded-b-[2rem] shrink-0 shadow-lg">
                         <h1 className="text-2xl font-black italic tracking-tighter">SurveyEngine<span className="text-indigo-400">Pro</span></h1>
-                        <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Final Deployment Build</p>
                     </header>
 
                     <main className="flex-grow overflow-y-auto px-4 pt-4 pb-24">
@@ -56,62 +55,43 @@
 
                     <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t safe-area-bottom z-50">
                         <div className="flex justify-around items-center h-20">
-                            <NavIcon active={view==='admin'} icon="⚙️" label="Admin" onClick={()=>setView('admin')} />
-                            <NavIcon active={view==='user'} icon="📝" label="Survey" onClick={()=>setView('user')} />
-                            <NavIcon active={view==='reports'} icon="📊" label="Results" onClick={()=>setView('reports')} />
+                            <button onClick={()=>setView('admin')} className={`flex flex-col items-center ${view==='admin' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                                <span className="text-xl">⚙️</span><span className="text-[9px] font-black uppercase mt-1">Admin</span>
+                            </button>
+                            <button onClick={()=>setView('user')} className={`flex flex-col items-center ${view==='user' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                                <span className="text-xl">📝</span><span className="text-[9px] font-black uppercase mt-1">Survey</span>
+                            </button>
+                            <button onClick={()=>setView('reports')} className={`flex flex-col items-center ${view==='reports' ? 'text-indigo-600' : 'text-slate-300'}`}>
+                                <span className="text-xl">📊</span><span className="text-[9px] font-black uppercase mt-1">Results</span>
+                            </button>
                         </div>
                     </nav>
                 </div>
             );
         }
 
-        const NavIcon = ({active, icon, label, onClick}) => (
-            <button onClick={onClick} className={`flex flex-col items-center transition ${active ? 'text-indigo-600 scale-110' : 'text-slate-300'}`}>
-                <span className="text-xl">{icon}</span>
-                <span className="text-[9px] font-black uppercase mt-1 tracking-tighter">{label}</span>
-            </button>
-        );
-
-        // --- ADMIN: HIERARCHY + FULL MULTIPLE CHOICE OPTIONS ---
+        // --- ADMIN: HIERARCHY ENGINE ---
         function AdminPanel({ db, setDb }) {
             const [selectedId, setSelectedId] = useState(null);
 
             const addCategory = (parentId = null, level = 1) => {
-                const name = prompt("Survey/Category Name:");
+                const name = prompt("Name:");
                 if(name) setDb({...db, categories: [...db.categories, { id: 'c'+Date.now(), name, parentId, level }]});
             };
 
             const addQuestion = () => {
-                if(!selectedId) return;
                 const qId = 'q' + Date.now();
-                const newQ = { 
-                    id: qId, 
-                    categoryId: selectedId, 
-                    text: "New Question Title", 
-                    choices: [
-                        { id: 'ch1', text: 'Excellent', value: '5' },
-                        { id: 'ch2', text: 'Poor', value: '1' }
-                    ] 
-                };
-                setDb({...db, questions: [...db.questions, newQ]});
-            };
-
-            const addChoice = (qId) => {
-                setDb({...db, questions: db.questions.map(q => q.id === qId ? {...q, choices: [...q.choices, {id: 'ch'+Date.now(), text: 'New Option', value: '0'}]} : q)});
-            };
-
-            const updateChoice = (qId, chId, field, val) => {
-                setDb({...db, questions: db.questions.map(q => q.id === qId ? {...q, choices: q.choices.map(c => c.id === chId ? {...c, [field]: val} : c)} : q)});
+                setDb({...db, questions: [...db.questions, { id: qId, categoryId: selectedId, text: "New Question", choices: [{id:'ch1', text:'Good', value:'5'}, {id:'ch2', text:'Bad', value:'1'}] }]});
             };
 
             const renderTree = (parentId = null) => {
                 return db.categories.filter(c => c.parentId === parentId).map(cat => (
                     <div key={cat.id} className={parentId ? "tree-line" : "mt-2"}>
-                        <div className={`p-3 rounded-xl border flex justify-between items-center bg-white ${selectedId === cat.id ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500' : 'border-slate-200'}`} onClick={() => setSelectedId(cat.id)}>
+                        <div className={`p-3 rounded-xl border flex justify-between items-center bg-white ${selectedId === cat.id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200'}`} onClick={() => setSelectedId(cat.id)}>
                             <span className="font-bold text-xs">{cat.name}</span>
                             <div className="flex gap-1">
-                                {cat.level < 3 && <button onClick={(e) => { e.stopPropagation(); addCategory(cat.id, cat.level + 1); }} className="text-[8px] font-black bg-slate-100 p-1 rounded">SUB</button>}
-                                <button onClick={(e) => { e.stopPropagation(); setDb({...db, categories: db.categories.filter(x => x.id !== cat.id)}); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1 rounded">DEL</button>
+                                <button onClick={(e) => { e.stopPropagation(); addCategory(cat.id, cat.level + 1); }} className="text-[8px] font-black bg-slate-100 p-1 rounded">SUB</button>
+                                <button onClick={(e) => { e.stopPropagation(); setDb({...db, categories: db.categories.filter(x => x.id !== cat.id), questions: db.questions.filter(q => q.categoryId !== cat.id)}); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1 rounded text-red-500">DEL</button>
                             </div>
                         </div>
                         {renderTree(cat.id)}
@@ -121,86 +101,84 @@
 
             return (
                 <div className="space-y-6">
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Hierarchy Tree</h2>
-                            <button onClick={() => addCategory(null, 1)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">ADD ROOT</button>
-                        </div>
-                        {renderTree()}
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Admin Tree</h2>
+                        <button onClick={() => addCategory(null, 1)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ROOT</button>
                     </div>
-
-                    {selectedId ? (
-                        <div className="bg-slate-50 p-4 rounded-3xl border border-indigo-100 animate-in slide-in-from-bottom-2">
+                    {renderTree()}
+                    {selectedId && (
+                        <div className="bg-slate-50 p-4 rounded-3xl border border-indigo-100">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-black text-xs uppercase text-indigo-900">Manage Questions</h3>
-                                <button onClick={addQuestion} className="bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ADD Q</button>
+                                <h3 className="font-black text-xs uppercase text-indigo-900">Questions for {db.categories.find(c => c.id === selectedId)?.name}</h3>
+                                <button onClick={addQuestion} className="bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">ADD Q</button>
                             </div>
                             {db.questions.filter(q => q.categoryId === selectedId).map(q => (
-                                <div key={q.id} className="p-4 bg-white rounded-2xl border mb-4 shadow-sm relative">
-                                    <button onClick={() => setDb({...db, questions: db.questions.filter(x => x.id !== q.id)})} className="absolute top-2 right-2 text-slate-300">✕</button>
-                                    <input className="w-full font-bold border-b mb-3 pb-1 outline-none focus:border-indigo-400" value={q.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, text: e.target.value} : item)})} />
-                                    
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase mb-2">Options & Values</p>
-                                    <div className="space-y-2">
-                                        {q.choices.map(ch => (
-                                            <div key={ch.id} className="flex gap-2">
-                                                <input className="flex-grow text-xs p-1 border rounded" value={ch.text} onChange={(e) => updateChoice(q.id, ch.id, 'text', e.target.value)} />
-                                                <input className="w-8 text-xs p-1 border rounded text-center font-mono" value={ch.value} onChange={(e) => updateChoice(q.id, ch.id, 'value', e.target.value)} />
-                                            </div>
-                                        ))}
-                                        <button onClick={() => addChoice(q.id)} className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">+ Add Option</button>
-                                    </div>
+                                <div key={q.id} className="p-4 bg-white rounded-2xl border mb-3 relative">
+                                    <input className="w-full font-bold border-b mb-3 outline-none" value={q.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, text: e.target.value} : item)})} />
+                                    {q.choices.map(ch => (
+                                        <div key={ch.id} className="flex gap-2 mb-1">
+                                            <input className="flex-grow text-[10px] p-1 border rounded" value={ch.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, choices: item.choices.map(c => c.id === ch.id ? {...c, text: e.target.value} : c)} : item)})} />
+                                            <input className="w-8 text-[10px] p-1 border rounded text-center" value={ch.value} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, choices: item.choices.map(c => c.id === ch.id ? {...c, value: e.target.value} : c)} : item)})} />
+                                        </div>
+                                    ))}
                                 </div>
                             ))}
                         </div>
-                    ) : <div className="text-center py-10 border-2 border-dashed rounded-3xl text-slate-300 text-xs italic">Tap a category in the tree to edit questions</div>}
+                    )}
                 </div>
             );
         }
 
-        // --- USER SURVEY: TWO STEP FLOW ---
+        // --- USER: RECURSIVE SELECTION LOGIC ---
         function UserSurvey({ db, setDb }) {
-            const [root, setRoot] = useState(null);
-            const [sub, setSub] = useState(null);
+            const [history, setHistory] = useState([]); // Stores the path taken
             const [rating, setRating] = useState(5);
 
+            const currentId = history.length > 0 ? history[history.length - 1].id : null;
+            const currentName = history.length > 0 ? history[history.length - 1].name : "Select Survey";
+            
+            // Get children of the current category
+            const children = db.categories.filter(c => c.parentId === currentId);
+            
+            // Check if current category has questions
+            const questions = db.questions.filter(q => q.categoryId === currentId);
+            
             const submit = () => {
-                setDb({...db, responses: [...db.responses, { id: Date.now(), root: root.name, cat: sub.name, rating, date: new Date().toISOString() }]});
-                alert("Saved!"); setRoot(null); setSub(null);
+                setDb({...db, responses: [...db.responses, { id: Date.now(), root: history[0].name, cat: currentName, rating, date: new Date().toISOString() }]});
+                alert("Submitted!");
+                setHistory([]);
             };
 
             return (
                 <div className="animate-in fade-in">
-                    {!root ? (
+                    <div className="mb-6">
+                        {history.length > 0 && (
+                            <button onClick={() => setHistory(history.slice(0, -1))} className="text-indigo-600 font-bold text-xs mb-2 uppercase tracking-widest">← Back</button>
+                        )}
+                        <h2 className="text-2xl font-black text-slate-800 leading-tight">{currentName}</h2>
+                    </div>
+
+                    {/* Step 1: List Children (Categories/Sub-levels) */}
+                    {children.length > 0 && (
                         <div className="space-y-3">
-                            <h2 className="text-2xl font-black mb-6">Select Survey</h2>
-                            {db.categories.filter(c => !c.parentId).map(c => (
-                                <button key={c.id} onClick={()=>setRoot(c)} className="w-full p-6 bg-indigo-900 text-white rounded-[2rem] text-left shadow-xl active:scale-95 transition">
-                                    <span className="text-lg font-bold">{c.name}</span>
-                                    <span className="block text-[10px] opacity-40 uppercase font-black tracking-widest mt-1">Begin →</span>
-                                </button>
-                            ))}
-                        </div>
-                    ) : !sub ? (
-                        <div className="space-y-3">
-                            <button onClick={()=>setRoot(null)} className="text-indigo-600 font-bold text-xs mb-4 uppercase tracking-widest">← Back to Main</button>
-                            <h2 className="text-xl font-black mb-4">{root.name}</h2>
-                            {db.categories.filter(c => c.parentId === root.id).map(c => (
-                                <button key={c.id} onClick={()=>setSub(c)} className="w-full p-5 bg-white border-2 border-slate-100 rounded-[1.5rem] text-left font-bold text-slate-700 active:bg-indigo-50">
+                            {children.map(c => (
+                                <button key={c.id} onClick={() => setHistory([...history, c])} className="w-full p-5 bg-white border-2 border-slate-100 rounded-[1.5rem] text-left font-bold text-slate-700 active:bg-indigo-50 active:border-indigo-200 shadow-sm transition">
                                     {c.name}
+                                    <span className="block text-[8px] text-slate-300 uppercase mt-1">Explore Category →</span>
                                 </button>
                             ))}
                         </div>
-                    ) : (
-                        <div className="space-y-6">
-                            <button onClick={()=>setSub(null)} className="text-indigo-600 font-bold text-xs mb-4 uppercase tracking-widest">← Back to Categories</button>
-                            <h2 className="text-2xl font-black leading-tight">{sub.name}</h2>
-                            {db.questions.filter(q => q.categoryId === sub.id).map(q => (
-                                <div key={q.id} className="mb-6">
+                    )}
+
+                    {/* Step 2: If Category Has Questions, show them */}
+                    {questions.length > 0 && (
+                        <div className="mt-8 space-y-8 pb-10 border-t pt-8">
+                            {questions.map(q => (
+                                <div key={q.id}>
                                     <p className="font-black text-slate-800 mb-4">{q.text}</p>
                                     <div className="space-y-2">
                                         {q.choices.map(ch => (
-                                            <label key={ch.id} className="flex items-center p-4 bg-slate-50 border-2 border-transparent rounded-2xl active:border-indigo-600 active:bg-indigo-50 transition">
+                                            <label key={ch.id} className="flex items-center p-4 bg-slate-50 border rounded-2xl active:bg-indigo-50">
                                                 <input type="radio" name={q.id} className="h-5 w-5 accent-indigo-600 mr-3" />
                                                 <span className="font-bold text-slate-600 text-sm">{ch.text}</span>
                                             </label>
@@ -208,22 +186,26 @@
                                     </div>
                                 </div>
                             ))}
-                            <div className="bg-indigo-950 p-8 rounded-[2.5rem] text-white">
-                                <p className="text-center text-[10px] font-black uppercase opacity-50 mb-4 tracking-widest">Category Satisfaction</p>
+                            <div className="bg-indigo-950 p-8 rounded-[2.5rem] text-white shadow-2xl">
+                                <p className="text-center text-[10px] font-black uppercase opacity-50 mb-4 tracking-widest tracking-widest">Overall Satisfaction Score</p>
                                 <div className="flex justify-between mb-8">
                                     {[1,2,3,4,5].map(n => (
                                         <button key={n} onClick={()=>setRating(n)} className={`h-11 w-11 rounded-xl font-black transition ${rating===n ? 'bg-indigo-500 scale-125 shadow-lg' : 'bg-white/10 opacity-30'}`}>{n}</button>
                                     ))}
                                 </div>
-                                <button onClick={submit} className="w-full bg-white text-indigo-950 py-4 rounded-2xl font-black text-lg active:scale-95 transition">SUBMIT FEEDBACK</button>
+                                <button onClick={submit} className="w-full bg-white text-indigo-950 py-4 rounded-2xl font-black text-lg active:scale-95 transition">COMPLETE</button>
                             </div>
                         </div>
+                    )}
+
+                    {children.length === 0 && questions.length === 0 && history.length > 0 && (
+                        <div className="text-center py-20 text-slate-300 italic text-sm">This category is empty. Go to Admin to add questions or sub-categories.</div>
                     )}
                 </div>
             );
         }
 
-        // --- REPORTS: AUTO-CALC SCORES ---
+        // --- REPORTS ---
         function ReportsView({ db, setDb }) {
             const stats = useMemo(() => {
                 const m = {};
@@ -238,22 +220,21 @@
                 <div>
                     <div className="flex justify-between items-end mb-8">
                         <h2 className="text-3xl font-black">Results</h2>
-                        <button onClick={() => {if(confirm("Wipe data?")) setDb({categories:[], questions:[], responses:[]})}} className="text-[10px] font-black text-red-400 border border-red-100 px-2 py-1 rounded-lg uppercase">Reset</button>
+                        <button onClick={() => {if(confirm("Reset?")) setDb({categories:[], questions:[], responses:[]})}} className="text-[10px] font-black text-red-400 border px-2 py-1 rounded">Wipe</button>
                     </div>
                     {stats.map(s => (
                         <div key={s.name} className="p-6 bg-white border border-slate-100 rounded-[2rem] mb-4 shadow-sm flex justify-between items-center">
                             <div>
-                                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">{s.root}</span>
+                                <span className="text-[8px] font-black text-indigo-500 uppercase">{s.root}</span>
                                 <h4 className="font-bold text-slate-800 text-lg leading-tight">{s.name}</h4>
-                                <span className="text-[10px] text-slate-300 font-bold uppercase">{s.count} Feedbacks</span>
+                                <span className="text-[10px] text-slate-300 font-bold">{s.count} Total</span>
                             </div>
                             <div className="text-right">
                                 <div className="text-3xl font-black text-indigo-600">{s.avg}</div>
-                                <div className="text-[8px] font-black text-slate-200 uppercase tracking-widest leading-none">Rating</div>
+                                <div className="text-[8px] font-black text-slate-200 uppercase">Avg</div>
                             </div>
                         </div>
                     ))}
-                    {stats.length === 0 && <div className="text-center py-20 text-slate-300 font-bold italic">No data yet. Collect surveys to see results here.</div>}
                 </div>
             );
         }

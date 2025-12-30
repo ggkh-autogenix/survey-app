@@ -2,285 +2,147 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SurveyEngine Pro - Choice Editor Fix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SurveyEngine Mobile</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#312e81">
+    
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        /* Mobile optimization: prevent text selection and highlight */
+        body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900 select-none">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const DB_KEY = 'SURVEY_FINAL_CHOICE_FIX';
+        const DB_KEY = 'SURVEY_MOBILE_POC_V2';
 
-        const INITIAL_DATA = {
-            categories: [
-                { id: 'c1', name: 'Product Quality', parentId: null, level: 1 },
-                { id: 'c2', name: 'Durability', parentId: 'c1', level: 2 }
-            ],
-            questions: [
-                { 
-                    id: 'q1', 
-                    categoryId: 'c2', 
-                    text: 'How would you rate the build material?', 
-                    choices: [
-                        { id: 'ch1', text: 'Premium Metal', value: '5' },
-                        { id: 'ch2', text: 'Basic Plastic', value: '2' }
-                    ] 
-                }
-            ],
-            responses: []
-        };
-
+        // --- CORE APP ---
         function App() {
             const [view, setView] = useState('admin');
             const [db, setDb] = useState(() => {
                 const saved = localStorage.getItem(DB_KEY);
-                return saved ? JSON.parse(saved) : INITIAL_DATA;
+                return saved ? JSON.parse(saved) : { categories: [], questions: [], responses: [] };
             });
 
             useEffect(() => {
                 localStorage.setItem(DB_KEY, JSON.stringify(db));
             }, [db]);
 
+            // PDF Export Function
+            const exportPDF = () => {
+                const element = document.getElementById('report-content');
+                html2pdf().from(element).save('Survey-Report.pdf');
+            };
+
             return (
-                <div className="min-h-screen flex flex-col">
-                    <nav className="bg-indigo-900 text-white p-4 shadow-lg flex justify-between items-center sticky top-0 z-50">
-                        <h1 className="text-xl font-black italic tracking-tighter">SurveyEngine<span className="text-indigo-400">Pro</span></h1>
-                        <div className="flex gap-2 font-bold text-xs uppercase tracking-widest">
-                            <button onClick={() => setView('admin')} className={`px-4 py-2 rounded-lg ${view === 'admin' ? 'bg-white text-indigo-900' : 'hover:bg-indigo-800'}`}>Admin</button>
-                            <button onClick={() => setView('user')} className={`px-4 py-2 rounded-lg ${view === 'user' ? 'bg-white text-indigo-900' : 'hover:bg-indigo-800'}`}>Take Survey</button>
-                            <button onClick={() => setView('reports')} className={`px-4 py-2 rounded-lg ${view === 'reports' ? 'bg-white text-indigo-900' : 'hover:bg-indigo-800'}`}>Reports</button>
-                        </div>
-                    </nav>
-                    <main className="p-6 flex-grow max-w-7xl mx-auto w-full">
-                        {view === 'admin' && <AdminPanel db={db} setDb={setDb} />}
-                        {view === 'user' && <UserSurvey db={db} setDb={setDb} />}
-                        {view === 'reports' && <ReportsView db={db} />}
+                <div className="min-h-screen flex flex-col max-w-md mx-auto bg-white shadow-2xl">
+                    {/* Top Mobile Bar */}
+                    <header className="bg-indigo-900 pt-12 pb-6 px-6 text-white rounded-b-[2rem]">
+                        <h1 className="text-2xl font-black italic tracking-tighter">SurveyEngine<span className="text-indigo-400">App</span></h1>
+                        <p className="text-xs opacity-60 font-bold uppercase tracking-widest">Internal POC Dashboard</p>
+                    </header>
+
+                    <main className="flex-grow p-4 overflow-y-auto">
+                        {view === 'admin' && <AdminView db={db} setDb={setDb} />}
+                        {view === 'user' && <UserView db={db} setDb={setDb} />}
+                        {view === 'reports' && <ReportsView db={db} exportPDF={exportPDF} />}
                     </main>
+
+                    {/* Bottom Mobile Navigation */}
+                    <nav className="bg-white border-t flex justify-around p-4 safe-area-bottom shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                        <NavBtn active={view==='admin'} icon="⚙️" label="Admin" onClick={()=>setView('admin')} />
+                        <NavBtn active={view==='user'} icon="📝" label="Survey" onClick={()=>setView('user')} />
+                        <NavBtn active={view==='reports'} icon="📊" label="Stats" onClick={()=>setView('reports')} />
+                    </nav>
                 </div>
             );
         }
 
-        // --- ADMIN PANEL: INTEGRATED CHOICE EDITING ---
-        function AdminPanel({ db, setDb }) {
-            const [activeCatId, setActiveCatId] = useState(null);
+        const NavBtn = ({active, icon, label, onClick}) => (
+            <button onClick={onClick} className={`flex flex-col items-center transition-all ${active ? 'text-indigo-600 scale-110' : 'text-slate-400 opacity-50'}`}>
+                <span className="text-xl">{icon}</span>
+                <span className="text-[10px] font-bold uppercase mt-1">{label}</span>
+            </button>
+        );
 
-            const addCategory = (parentId, level) => {
-                const name = prompt("Enter Category Name:");
-                if (!name) return;
-                setDb(prev => ({ ...prev, categories: [...prev.categories, { id: 'c'+Date.now(), name, parentId, level: level + 1 }] }));
+        // --- SUB-COMPONENTS (Simplified for Mobile) ---
+        function AdminView({db, setDb}) {
+            const addCat = () => {
+                const n = prompt("Survey Name:");
+                if(n) setDb({...db, categories: [...db.categories, {id: Date.now(), name: n, level: 1}]});
             };
-
-            const addQuestion = () => {
-                const qId = 'q' + Date.now();
-                const newQ = { 
-                    id: qId, 
-                    categoryId: activeCatId, 
-                    text: "Untitled Question", 
-                    choices: [{ id: 'ch'+Date.now(), text: 'New Option', value: '1' }] 
-                };
-                setDb(prev => ({ ...prev, questions: [...prev.questions, newQ] }));
-            };
-
-            const updateQuestion = (qId, field, val) => {
-                setDb(prev => ({
-                    ...prev,
-                    questions: prev.questions.map(q => q.id === qId ? { ...q, [field]: val } : q)
-                }));
-            };
-
-            const addChoice = (qId) => {
-                setDb(prev => ({
-                    ...prev,
-                    questions: prev.questions.map(q => q.id === qId ? {
-                        ...q, choices: [...q.choices, { id: 'ch'+Date.now(), text: 'New Option', value: '0' }]
-                    } : q)
-                }));
-            };
-
-            const updateChoice = (qId, chId, field, val) => {
-                setDb(prev => ({
-                    ...prev,
-                    questions: prev.questions.map(q => q.id === qId ? {
-                        ...q, choices: q.choices.map(c => c.id === chId ? { ...c, [field]: val } : c)
-                    } : q)
-                }));
-            };
-
-            const removeChoice = (qId, chId) => {
-                setDb(prev => ({
-                    ...prev,
-                    questions: prev.questions.map(q => q.id === qId ? {
-                        ...q, choices: q.choices.filter(c => c.id !== chId)
-                    } : q)
-                }));
-            };
-
-            const renderTree = (parentId = null) => {
-                return db.categories.filter(c => c.parentId === parentId).map(cat => (
-                    <div key={cat.id} className="ml-4 mt-2">
-                        <div className={`p-3 border rounded-xl flex justify-between cursor-pointer group ${activeCatId === cat.id ? 'bg-indigo-50 border-indigo-400' : 'bg-white hover:border-indigo-200'}`} onClick={() => setActiveCatId(cat.id)}>
-                            <span className="font-bold text-slate-700">{cat.name}</span>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                                {cat.level < 3 && <button onClick={() => addCategory(cat.id, cat.level)} className="text-[10px] font-black text-indigo-600 px-2 py-1 bg-indigo-100 rounded">SUB</button>}
-                                <button onClick={() => {if(confirm("Delete?")) setDb(prev => ({...prev, categories: prev.categories.filter(c => c.id !== cat.id)}))}} className="text-[10px] font-black text-red-600 px-2 py-1 bg-red-100 rounded">DEL</button>
-                            </div>
-                        </div>
-                        {renderTree(cat.id)}
-                    </div>
-                ));
-            };
-
             return (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4">
-                        <h2 className="text-xl font-black mb-4">Categories</h2>
-                        <button onClick={() => addCategory(null, 0)} className="w-full mb-4 bg-white border-2 border-dashed p-3 rounded-xl text-slate-400 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition">+ Add Root Survey</button>
-                        {renderTree()}
+                <div className="animate-fade-in">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-black">Structure</h2>
+                        <button onClick={addCat} className="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">+ New</button>
                     </div>
-                    <div className="lg:col-span-8">
-                        {activeCatId ? (
-                            <div className="bg-white p-8 rounded-3xl border shadow-sm">
-                                <div className="flex justify-between items-center mb-8">
-                                    <h2 className="text-3xl font-black">{db.categories.find(c => c.id === activeCatId)?.name}</h2>
-                                    <button onClick={addQuestion} className="bg-emerald-600 text-white px-6 py-2 rounded-full font-black text-sm shadow-lg">+ ADD QUESTION</button>
-                                </div>
-                                <div className="space-y-6">
-                                    {db.questions.filter(q => q.categoryId === activeCatId).map(q => (
-                                        <div key={q.id} className="p-6 bg-slate-50 border border-slate-200 rounded-3xl relative">
-                                            <button onClick={() => setDb(prev => ({...prev, questions: prev.questions.filter(item => item.id !== q.id)}))} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 font-bold">✕</button>
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Question Title</label>
-                                            <input className="w-full p-3 rounded-xl border-2 border-transparent focus:border-indigo-500 outline-none font-bold text-lg mb-6 shadow-sm" value={q.text} onChange={(e) => updateQuestion(q.id, 'text', e.target.value)} />
-                                            
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Configure Choices</label>
-                                            <div className="space-y-3">
-                                                {q.choices.map(c => (
-                                                    <div key={c.id} className="flex gap-2 items-center">
-                                                        <input className="flex-grow p-2 rounded-lg border text-sm" placeholder="Choice Label" value={c.text} onChange={(e) => updateChoice(q.id, c.id, 'text', e.target.value)} />
-                                                        <input className="w-20 p-2 rounded-lg border text-sm text-center font-mono" placeholder="Value" value={c.value} onChange={(e) => updateChoice(q.id, c.id, 'value', e.target.value)} />
-                                                        <button onClick={() => removeChoice(q.id, c.id)} className="text-red-400 p-2 hover:text-red-600">✕</button>
-                                                    </div>
-                                                ))}
-                                                <button onClick={() => addChoice(q.id)} className="text-indigo-600 text-xs font-black mt-2 bg-indigo-50 px-3 py-1.5 rounded-lg">+ ADD OPTION</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : <div className="h-64 flex items-center justify-center border-2 border-dashed rounded-3xl text-slate-300 italic">Select a category to add questions and choices</div>}
-                    </div>
+                    {db.categories.map(c => (
+                        <div key={c.id} className="p-4 bg-slate-50 rounded-2xl mb-2 flex justify-between items-center border border-slate-100">
+                            <span className="font-bold text-slate-700">{c.name}</span>
+                            <button onClick={() => setDb({...db, categories: db.categories.filter(x => x.id !== c.id)})} className="text-red-300">✕</button>
+                        </div>
+                    ))}
                 </div>
             );
         }
 
-        // --- USER SURVEY: TWO-STEP DRILL DOWN ---
-        function UserSurvey({ db, setDb }) {
-            const [root, setRoot] = useState(null);
-            const [sub, setSub] = useState(null);
-            const [ans, setAns] = useState({});
-            const [rating, setRating] = useState(5);
-
-            const submit = () => {
-                const res = { id: Date.now(), catName: sub.name, rootName: root.name, rating, date: new Date().toISOString() };
-                setDb(prev => ({ ...prev, responses: [...prev.responses, res] }));
-                alert("Saved!");
-                setRoot(null); setSub(null); setAns({});
+        function UserView({db, setDb}) {
+            const [sel, setSel] = useState(null);
+            const submit = (r) => {
+                setDb({...db, responses: [...db.responses, {id: Date.now(), name: sel.name, rating: r}]});
+                alert("Submitted!"); setSel(null);
             };
-
             return (
-                <div className="max-w-2xl mx-auto">
-                    {!root ? (
-                        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border">
-                            <h2 className="text-3xl font-black mb-8 text-center text-slate-800 tracking-tighter">Available Surveys</h2>
-                            <div className="grid gap-4">
-                                {db.categories.filter(c => c.parentId === null).map(c => (
-                                    <button key={c.id} onClick={() => setRoot(c)} className="p-8 border-2 rounded-3xl hover:border-indigo-500 hover:bg-indigo-50 transition-all flex justify-between items-center group">
-                                        <span className="text-xl font-black text-slate-700">{c.name}</span>
-                                        <span className="text-indigo-500 font-black opacity-0 group-hover:opacity-100">OPEN →</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ) : !sub ? (
-                        <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border">
-                            <button onClick={() => setRoot(null)} className="text-indigo-600 font-bold mb-4 inline-block">← Back</button>
-                            <h2 className="text-2xl font-black mb-6">Select Category in <span className="text-indigo-500">{root.name}</span></h2>
-                            <div className="space-y-3">
-                                {db.categories.filter(c => c.parentId === root.id || db.categories.find(p => p.id === c.parentId && p.parentId === root.id)).map(c => (
-                                    <button key={c.id} onClick={() => setSub(c)} className="w-full text-left p-4 border rounded-2xl hover:bg-slate-50 font-bold text-slate-600">{c.name}</button>
-                                ))}
-                            </div>
-                        </div>
+                <div>
+                    {!sel ? (
+                        db.categories.map(c => (
+                            <button key={c.id} onClick={()=>setSel(c)} className="w-full p-6 mb-3 bg-indigo-50 rounded-3xl text-left border-2 border-indigo-100 group active:scale-95 transition">
+                                <span className="text-xl font-black text-indigo-900">{c.name}</span>
+                                <span className="block text-[10px] text-indigo-400 font-bold uppercase mt-1">Start Survey →</span>
+                            </button>
+                        ))
                     ) : (
-                        <div className="bg-white rounded-[2.5rem] shadow-2xl border overflow-hidden">
-                            <div className="bg-indigo-800 p-8 text-white">
-                                <button onClick={() => setSub(null)} className="text-indigo-300 font-bold text-xs uppercase mb-2">← Change Category</button>
-                                <h2 className="text-4xl font-black tracking-tight">{sub.name}</h2>
-                            </div>
-                            <div className="p-10 space-y-10">
-                                {db.questions.filter(q => q.categoryId === sub.id).map(q => (
-                                    <div key={q.id}>
-                                        <p className="text-xl font-black text-slate-800 mb-6">{q.text}</p>
-                                        <div className="grid gap-3">
-                                            {q.choices.map(c => (
-                                                <label key={c.id} className={`p-4 border-2 rounded-2xl flex items-center gap-4 cursor-pointer transition ${ans[q.id] === c.value ? 'bg-indigo-50 border-indigo-600 shadow-md' : 'border-slate-100'}`}>
-                                                    <input type="radio" name={q.id} className="h-5 w-5 accent-indigo-600" onChange={() => setAns({...ans, [q.id]: c.value})} />
-                                                    <span className="font-bold text-slate-600">{c.text}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
+                        <div className="text-center py-10">
+                            <h2 className="text-2xl font-black mb-6">{sel.name}</h2>
+                            <p className="mb-8 text-slate-500 font-medium">How would you rate your experience?</p>
+                            <div className="flex justify-between mb-10">
+                                {[1,2,3,4,5].map(n => (
+                                    <button key={n} onClick={()=>submit(n)} className="h-12 w-12 bg-slate-100 rounded-2xl font-black text-indigo-900 active:bg-indigo-600 active:text-white">{n}</button>
                                 ))}
-                                <div className="pt-10 border-t">
-                                    <p className="font-black text-slate-800 mb-4 text-center text-lg">Overall Performance Rating (1-5)</p>
-                                    <div className="flex justify-center gap-4 bg-slate-50 p-4 rounded-3xl">
-                                        {[1,2,3,4,5].map(n => (
-                                            <button key={n} onClick={() => setRating(n)} className={`h-14 w-14 rounded-2xl font-black text-xl transition-all ${rating === n ? 'bg-indigo-600 text-white shadow-xl scale-110' : 'bg-white text-slate-300 hover:text-slate-500'}`}>{n}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <button onClick={submit} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-2xl shadow-2xl hover:bg-indigo-700 active:scale-95 transition mt-4">SUBMIT FEEDBACK</button>
                             </div>
+                            <button onClick={()=>setSel(null)} className="text-slate-400 font-bold text-sm">Cancel</button>
                         </div>
                     )}
                 </div>
             );
         }
 
-        // --- REPORTS VIEW ---
-        function ReportsView({ db }) {
-            const stats = useMemo(() => {
-                const map = {};
-                db.responses.forEach(r => {
-                    if (!map[r.catName]) map[r.catName] = { count: 0, sum: 0, root: r.rootName };
-                    map[r.catName].count++;
-                    map[r.catName].sum += r.rating;
-                });
-                return Object.entries(map).map(([name, v]) => ({ name, root: v.root, count: v.count, avg: (v.sum / v.count).toFixed(1) }));
-            }, [db.responses]);
-
+        function ReportsView({db, exportPDF}) {
             return (
-                <div className="bg-white p-10 rounded-[2.5rem] border shadow-sm">
-                    <h2 className="text-3xl font-black mb-8">Performance Analytics</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                        {stats.map(s => (
-                            <div key={s.name} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 shadow-sm">
-                                <span className="text-[10px] font-black uppercase text-indigo-500 tracking-widest">{s.root}</span>
-                                <h4 className="font-black text-slate-800 text-xl mt-1 truncate">{s.name}</h4>
-                                <div className="mt-4 flex justify-between items-end">
-                                    <div>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase">Average Score</p>
-                                        <p className="text-3xl font-black text-indigo-600">{s.avg}</p>
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-400 mb-1">{s.count} Feedbacks</span>
-                                </div>
-                            </div>
-                        ))}
+                <div id="report-content">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-black">Live Stats</h2>
+                        <button onClick={exportPDF} className="text-[10px] bg-emerald-500 text-white px-3 py-1 rounded-full font-bold">Export PDF</button>
                     </div>
+                    {db.responses.length === 0 && <p className="text-center text-slate-400 italic mt-10">No data yet</p>}
+                    {db.responses.map(r => (
+                        <div key={r.id} className="p-4 border-b flex justify-between items-center">
+                            <span className="font-bold text-slate-600">{r.name}</span>
+                            <span className="font-black text-indigo-600">Score: {r.rating}</span>
+                        </div>
+                    ))}
                 </div>
             );
         }

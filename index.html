@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SurveyEngine Pro - Infinite Tree</title>
+    <title>SurveyEngine Pro - Full Control</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -27,7 +27,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const DB_KEY = 'SURVEY_INFINITE_TREE_V4';
+        const DB_KEY = 'SURVEY_CONTROL_V5';
 
         function App() {
             const [view, setView] = useState('admin');
@@ -69,13 +69,35 @@
             );
         }
 
-        // --- ADMIN: INFINITE BRANCHING ---
         function AdminPanel({ db, setDb }) {
             const [selectedId, setSelectedId] = useState(null);
 
             const addNode = (parentId = null) => {
                 const name = prompt("Name this Category/Sub:");
                 if(name) setDb({...db, categories: [...db.categories, { id: 'c'+Date.now(), name, parentId }]});
+            };
+
+            // RECURSIVE DELETE: Deletes category + all descendants + all linked questions
+            const deleteNode = (id) => {
+                if(!confirm("Are you sure? This deletes all sub-categories and questions inside.")) return;
+                
+                const getDescendants = (catId) => {
+                    let children = db.categories.filter(c => c.parentId === catId);
+                    let ids = [catId];
+                    children.forEach(child => {
+                        ids = [...ids, ...getDescendants(child.id)];
+                    });
+                    return ids;
+                };
+
+                const idsToDelete = getDescendants(id);
+                
+                setDb({
+                    ...db,
+                    categories: db.categories.filter(c => !idsToDelete.includes(c.id)),
+                    questions: db.questions.filter(q => !idsToDelete.includes(q.categoryId))
+                });
+                if(idsToDelete.includes(selectedId)) setSelectedId(null);
             };
 
             const addQuestion = (catId) => {
@@ -91,8 +113,8 @@
                         <div className={`p-3 rounded-xl border flex justify-between items-center bg-white ${selectedId === cat.id ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200'}`} onClick={() => setSelectedId(cat.id)}>
                             <span className="font-bold text-xs truncate mr-2">{cat.name}</span>
                             <div className="flex gap-1 shrink-0">
-                                <button onClick={(e) => { e.stopPropagation(); addNode(cat.id); }} className="text-[8px] font-black bg-indigo-50 text-indigo-600 p-1 rounded">SUB</button>
-                                <button onClick={(e) => { e.stopPropagation(); if(confirm("Delete?")) setDb({...db, categories: db.categories.filter(x => x.id !== cat.id)}); }} className="text-[8px] font-black bg-red-50 text-red-400 p-1 rounded">DEL</button>
+                                <button onClick={(e) => { e.stopPropagation(); addNode(cat.id); }} className="text-[8px] font-black bg-indigo-50 text-indigo-600 p-1.5 rounded">SUB</button>
+                                <button onClick={(e) => { e.stopPropagation(); deleteNode(cat.id); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1.5 rounded">🗑️</button>
                             </div>
                         </div>
                         {renderTree(cat.id)}
@@ -104,21 +126,22 @@
                 <div className="space-y-6">
                     <div>
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Survey Structure</h2>
-                            <button onClick={() => addNode(null)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ADD ROOT</button>
+                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Setup Tree</h2>
+                            <button onClick={() => addNode(null)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ROOT</button>
                         </div>
-                        <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100">{renderTree()}</div>
+                        <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 min-h-[100px]">{renderTree()}</div>
                     </div>
 
                     {selectedId && (
                         <div className="bg-slate-900 p-5 rounded-[2rem] text-white shadow-2xl animate-in slide-in-from-bottom-5">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-60">Editing: {db.categories.find(c => c.id === selectedId)?.name}</h3>
-                                <button onClick={() => addQuestion(selectedId)} className="bg-emerald-500 text-white text-[9px] px-3 py-1 rounded-full font-black">+ ADD QUESTION</button>
+                                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-60">Edit: {db.categories.find(c => c.id === selectedId)?.name}</h3>
+                                <button onClick={() => addQuestion(selectedId)} className="bg-emerald-500 text-white text-[9px] px-3 py-1 rounded-full font-black">+ ADD Q</button>
                             </div>
                             
                             {db.questions.filter(q => q.categoryId === selectedId).map(q => (
-                                <div key={q.id} className="bg-white/5 p-4 rounded-2xl mb-4 border border-white/10">
+                                <div key={q.id} className="bg-white/5 p-4 rounded-2xl mb-4 border border-white/10 relative">
+                                    <button onClick={() => setDb({...db, questions: db.questions.filter(x => x.id !== q.id)})} className="absolute top-2 right-2 text-red-400 text-xs">✕</button>
                                     <input className="bg-transparent w-full font-bold border-b border-white/20 pb-1 mb-3 outline-none" value={q.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, text: e.target.value} : item)})} />
                                     {q.choices.map(ch => (
                                         <div key={ch.id} className="flex gap-2 mb-1">
@@ -134,7 +157,7 @@
             );
         }
 
-        // --- USER: DRILL-DOWN ---
+        // --- USER & STATS VIEWS REMAIN STABLE ---
         function UserSurvey({ db, setDb }) {
             const [history, setHistory] = useState([]);
             const [rating, setRating] = useState(5);
@@ -190,7 +213,6 @@
             );
         }
 
-        // --- REPORTS ---
         function ReportsView({ db, setDb }) {
             const stats = useMemo(() => {
                 const m = {};
@@ -203,7 +225,7 @@
 
             return (
                 <div className="space-y-4">
-                    <h2 className="text-2xl font-black mb-6">Performance</h2>
+                    <h2 className="text-2xl font-black mb-6 text-slate-800">Analytics</h2>
                     {stats.map(s => (
                         <div key={s.name} className="p-5 bg-white border border-slate-100 rounded-3xl flex justify-between items-center shadow-sm">
                             <div>
@@ -212,11 +234,11 @@
                             </div>
                             <div className="text-right">
                                 <div className="text-2xl font-black text-indigo-600">{s.avg}</div>
-                                <div className="text-[8px] font-black text-slate-300 uppercase">Avg</div>
+                                <div className="text-[8px] font-black text-slate-300 uppercase">Avg Rating</div>
                             </div>
                         </div>
                     ))}
-                    <button onClick={() => setDb({...db, responses:[]})} className="w-full mt-10 text-[8px] text-slate-300 font-bold uppercase tracking-widest">Clear Logs</button>
+                    <button onClick={() => setDb({...db, responses:[]})} className="w-full mt-10 text-[8px] text-slate-300 font-bold uppercase tracking-widest underline">Reset Analytics Only</button>
                 </div>
             );
         }

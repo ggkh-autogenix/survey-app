@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SurveyEngine Mobile</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SurveyEngine Pro Mobile</title>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#312e81">
@@ -15,134 +16,290 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
-        /* Mobile optimization: prevent text selection and highlight */
-        body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
-        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+            overscroll-behavior-y: contain;
+        }
+
+        .safe-area-inset {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Custom Scrollbar for Tree View */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 select-none">
+<body class="bg-slate-100">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const DB_KEY = 'SURVEY_MOBILE_POC_V2';
+        const DB_KEY = 'SURVEY_PRO_MASTER_DB';
 
-        // --- CORE APP ---
+        // --- INITIAL DATA SEED ---
+        const INITIAL_SEED = {
+            categories: [
+                { id: 'r1', name: 'Product Experience', parentId: null, level: 1 },
+                { id: 'c1', name: 'UI/UX Design', parentId: 'r1', level: 2 },
+                { id: 'r2', name: 'Customer Support', parentId: null, level: 1 }
+            ],
+            questions: [
+                { id: 'q1', categoryId: 'c1', text: 'How easy was the navigation?', choices: [
+                    { id: 'ch1', text: 'Seamless', value: '5' },
+                    { id: 'ch2', text: 'Confusing', value: '1' }
+                ]}
+            ],
+            responses: []
+        };
+
         function App() {
-            const [view, setView] = useState('admin');
+            const [view, setView] = useState('user'); // Default to Survey for POC
             const [db, setDb] = useState(() => {
                 const saved = localStorage.getItem(DB_KEY);
-                return saved ? JSON.parse(saved) : { categories: [], questions: [], responses: [] };
+                return saved ? JSON.parse(saved) : INITIAL_SEED;
             });
 
             useEffect(() => {
                 localStorage.setItem(DB_KEY, JSON.stringify(db));
             }, [db]);
 
-            // PDF Export Function
-            const exportPDF = () => {
-                const element = document.getElementById('report-content');
-                html2pdf().from(element).save('Survey-Report.pdf');
-            };
-
             return (
-                <div className="min-h-screen flex flex-col max-w-md mx-auto bg-white shadow-2xl">
-                    {/* Top Mobile Bar */}
-                    <header className="bg-indigo-900 pt-12 pb-6 px-6 text-white rounded-b-[2rem]">
-                        <h1 className="text-2xl font-black italic tracking-tighter">SurveyEngine<span className="text-indigo-400">App</span></h1>
-                        <p className="text-xs opacity-60 font-bold uppercase tracking-widest">Internal POC Dashboard</p>
+                <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white shadow-2xl relative overflow-hidden">
+                    {/* Header */}
+                    <header className="bg-indigo-900 pt-14 pb-8 px-6 text-white rounded-b-[2.5rem] shadow-lg shrink-0">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-black tracking-tighter italic">SurveyEngine<span className="text-indigo-400">Pro</span></h1>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-50">Enterprise Edition</p>
+                            </div>
+                            <div className="h-10 w-10 rounded-full bg-indigo-800 border border-indigo-700 flex items-center justify-center text-xl">👤</div>
+                        </div>
                     </header>
 
-                    <main className="flex-grow p-4 overflow-y-auto">
-                        {view === 'admin' && <AdminView db={db} setDb={setDb} />}
-                        {view === 'user' && <UserView db={db} setDb={setDb} />}
-                        {view === 'reports' && <ReportsView db={db} exportPDF={exportPDF} />}
+                    {/* Main Content Area */}
+                    <main className="flex-grow overflow-y-auto custom-scroll px-4 pt-6 pb-24">
+                        {view === 'admin' && <AdminPanel db={db} setDb={setDb} />}
+                        {view === 'user' && <UserSurvey db={db} setDb={setDb} />}
+                        {view === 'reports' && <ReportsView db={db} />}
                     </main>
 
-                    {/* Bottom Mobile Navigation */}
-                    <nav className="bg-white border-t flex justify-around p-4 safe-area-bottom shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-                        <NavBtn active={view==='admin'} icon="⚙️" label="Admin" onClick={()=>setView('admin')} />
-                        <NavBtn active={view==='user'} icon="📝" label="Survey" onClick={()=>setView('user')} />
-                        <NavBtn active={view==='reports'} icon="📊" label="Stats" onClick={()=>setView('reports')} />
+                    {/* Mobile Bottom Navigation */}
+                    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-nav border-t border-slate-100 safe-area-inset z-50">
+                        <div className="flex justify-around items-center h-20">
+                            <NavTab active={view==='admin'} icon="⚙️" label="Admin" onClick={()=>setView('admin')} />
+                            <NavTab active={view==='user'} icon="📝" label="Survey" onClick={()=>setView('user')} />
+                            <NavTab active={view==='reports'} icon="📊" label="Results" onClick={()=>setView('reports')} />
+                        </div>
                     </nav>
                 </div>
             );
         }
 
-        const NavBtn = ({active, icon, label, onClick}) => (
-            <button onClick={onClick} className={`flex flex-col items-center transition-all ${active ? 'text-indigo-600 scale-110' : 'text-slate-400 opacity-50'}`}>
-                <span className="text-xl">{icon}</span>
-                <span className="text-[10px] font-bold uppercase mt-1">{label}</span>
+        const NavTab = ({active, icon, label, onClick}) => (
+            <button onClick={onClick} className={`flex flex-col items-center justify-center w-full transition-all ${active ? 'text-indigo-600' : 'text-slate-400'}`}>
+                <span className={`text-2xl mb-1 ${active ? 'scale-110' : 'grayscale opacity-70'}`}>{icon}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+                {active && <div className="h-1 w-1 rounded-full bg-indigo-600 mt-1" />}
             </button>
         );
 
-        // --- SUB-COMPONENTS (Simplified for Mobile) ---
-        function AdminView({db, setDb}) {
-            const addCat = () => {
-                const n = prompt("Survey Name:");
-                if(n) setDb({...db, categories: [...db.categories, {id: Date.now(), name: n, level: 1}]});
-            };
-            return (
-                <div className="animate-fade-in">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-black">Structure</h2>
-                        <button onClick={addCat} className="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">+ New</button>
-                    </div>
-                    {db.categories.map(c => (
-                        <div key={c.id} className="p-4 bg-slate-50 rounded-2xl mb-2 flex justify-between items-center border border-slate-100">
-                            <span className="font-bold text-slate-700">{c.name}</span>
-                            <button onClick={() => setDb({...db, categories: db.categories.filter(x => x.id !== c.id)})} className="text-red-300">✕</button>
-                        </div>
-                    ))}
-                </div>
-            );
-        }
+        // --- ADMIN: THE TREE & QUESTION ENGINE ---
+        function AdminPanel({ db, setDb }) {
+            const [selectedId, setSelectedId] = useState(null);
 
-        function UserView({db, setDb}) {
-            const [sel, setSel] = useState(null);
-            const submit = (r) => {
-                setDb({...db, responses: [...db.responses, {id: Date.now(), name: sel.name, rating: r}]});
-                alert("Submitted!"); setSel(null);
+            const addCat = (parentId = null, level = 1) => {
+                const name = prompt("Enter Name:");
+                if(name) setDb({...db, categories: [...db.categories, { id: 'c'+Date.now(), name, parentId, level }]});
             };
-            return (
-                <div>
-                    {!sel ? (
-                        db.categories.map(c => (
-                            <button key={c.id} onClick={()=>setSel(c)} className="w-full p-6 mb-3 bg-indigo-50 rounded-3xl text-left border-2 border-indigo-100 group active:scale-95 transition">
-                                <span className="text-xl font-black text-indigo-900">{c.name}</span>
-                                <span className="block text-[10px] text-indigo-400 font-bold uppercase mt-1">Start Survey →</span>
-                            </button>
-                        ))
-                    ) : (
-                        <div className="text-center py-10">
-                            <h2 className="text-2xl font-black mb-6">{sel.name}</h2>
-                            <p className="mb-8 text-slate-500 font-medium">How would you rate your experience?</p>
-                            <div className="flex justify-between mb-10">
-                                {[1,2,3,4,5].map(n => (
-                                    <button key={n} onClick={()=>submit(n)} className="h-12 w-12 bg-slate-100 rounded-2xl font-black text-indigo-900 active:bg-indigo-600 active:text-white">{n}</button>
-                                ))}
+
+            const addQ = () => {
+                const qId = 'q' + Date.now();
+                const newQ = { id: qId, categoryId: selectedId, text: "New Question?", choices: [{ id: 'ch1', text: 'Option 1', value: '5' }] };
+                setDb({...db, questions: [...db.questions, newQ]});
+            };
+
+            const renderTree = (parentId = null) => {
+                return db.categories.filter(c => c.parentId === parentId).map(cat => (
+                    <div key={cat.id} className="ml-4 mt-2">
+                        <div 
+                            className={`p-3 rounded-xl border flex justify-between items-center transition ${selectedId === cat.id ? 'bg-indigo-50 border-indigo-400' : 'bg-white'}`}
+                            onClick={() => setSelectedId(cat.id)}
+                        >
+                            <span className="font-bold text-sm">{cat.name}</span>
+                            <div className="flex gap-2">
+                                {cat.level < 3 && <button onClick={(e) => { e.stopPropagation(); addCat(cat.id, cat.level + 1); }} className="text-[9px] bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded">SUB</button>}
+                                <button onClick={(e) => { e.stopPropagation(); setDb({...db, categories: db.categories.filter(x => x.id !== cat.id)}); }} className="text-[9px] bg-red-50 text-red-500 font-bold px-2 py-1 rounded">DEL</button>
                             </div>
-                            <button onClick={()=>setSel(null)} className="text-slate-400 font-bold text-sm">Cancel</button>
+                        </div>
+                        {renderTree(cat.id)}
+                    </div>
+                ));
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="bg-slate-50 p-4 rounded-3xl border border-dashed border-slate-300">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-black text-slate-800 uppercase text-xs">Survey Hierarchy</h3>
+                            <button onClick={() => addCat(null, 1)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ROOT</button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto custom-scroll">{renderTree()}</div>
+                    </div>
+
+                    {selectedId && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-black text-slate-800 uppercase text-xs">Questions</h3>
+                                <button onClick={addQ} className="bg-emerald-500 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ADD QUESTION</button>
+                            </div>
+                            {db.questions.filter(q => q.categoryId === selectedId).map(q => (
+                                <div key={q.id} className="p-4 bg-white border rounded-2xl mb-3 shadow-sm">
+                                    <input 
+                                        className="w-full font-bold border-b border-slate-100 outline-none mb-4 pb-1" 
+                                        value={q.text} 
+                                        onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, text: e.target.value} : item)})}
+                                    />
+                                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <span>Choice Based</span>
+                                        <button onClick={() => setDb({...db, questions: db.questions.filter(item => item.id !== q.id)})} className="text-red-400">Remove</button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
             );
         }
 
-        function ReportsView({db, exportPDF}) {
+        // --- USER: DRILL-DOWN SURVEY UI ---
+        function UserSurvey({ db, setDb }) {
+            const [root, setRoot] = useState(null);
+            const [sub, setSub] = useState(null);
+            const [rating, setRating] = useState(5);
+
+            const reset = () => { setRoot(null); setSub(null); setRating(5); };
+
+            const handleFinish = () => {
+                const newRes = { id: Date.now(), rootName: root.name, catName: sub.name, rating, date: new Date().toISOString() };
+                setDb({...db, responses: [...db.responses, newRes]});
+                alert("Thank you! Feedback saved.");
+                reset();
+            };
+
             return (
-                <div id="report-content">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-black">Live Stats</h2>
-                        <button onClick={exportPDF} className="text-[10px] bg-emerald-500 text-white px-3 py-1 rounded-full font-bold">Export PDF</button>
-                    </div>
-                    {db.responses.length === 0 && <p className="text-center text-slate-400 italic mt-10">No data yet</p>}
-                    {db.responses.map(r => (
-                        <div key={r.id} className="p-4 border-b flex justify-between items-center">
-                            <span className="font-bold text-slate-600">{r.name}</span>
-                            <span className="font-black text-indigo-600">Score: {r.rating}</span>
+                <div className="animate-in fade-in duration-500">
+                    {!root ? (
+                        <div className="space-y-4">
+                            <h2 className="text-2xl font-black text-slate-800 mb-6">Select a Survey</h2>
+                            {db.categories.filter(c => c.parentId === null).map(c => (
+                                <button key={c.id} onClick={() => setRoot(c)} className="w-full p-6 bg-indigo-50 border-2 border-indigo-100 rounded-[2rem] text-left group active:scale-95 transition-all">
+                                    <span className="text-xl font-black text-indigo-900 group-hover:text-indigo-600">{c.name}</span>
+                                    <span className="block text-[10px] font-bold text-indigo-400 uppercase mt-1">Tap to Open →</span>
+                                </button>
+                            ))}
                         </div>
-                    ))}
+                    ) : !sub ? (
+                        <div className="space-y-4">
+                            <button onClick={() => setRoot(null)} className="text-indigo-600 font-bold text-sm mb-4">← Change Survey</button>
+                            <h2 className="text-2xl font-black text-slate-800 mb-6">Which Category?</h2>
+                            {db.categories.filter(c => c.parentId === root.id).map(c => (
+                                <button key={c.id} onClick={() => setSub(c)} className="w-full p-5 bg-white border-2 border-slate-100 rounded-3xl text-left font-bold text-slate-700 active:bg-slate-50 transition">
+                                    {c.name}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-8 pb-10">
+                            <button onClick={() => setSub(null)} className="text-indigo-600 font-bold text-sm">← Back</button>
+                            <h2 className="text-3xl font-black text-slate-900 leading-tight">{sub.name}</h2>
+                            
+                            <div className="space-y-8">
+                                {db.questions.filter(q => q.categoryId === sub.id).map(q => (
+                                    <div key={q.id}>
+                                        <p className="font-bold text-slate-800 mb-4">{q.text}</p>
+                                        <div className="space-y-2">
+                                            {q.choices.map(ch => (
+                                                <label key={ch.id} className="flex items-center p-4 bg-slate-50 border rounded-2xl active:bg-indigo-50">
+                                                    <input type="radio" name={q.id} className="h-5 w-5 accent-indigo-600 mr-3" />
+                                                    <span className="font-medium text-slate-700">{ch.text}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
+                                <p className="text-center font-bold mb-6 opacity-70">Overall Satisfaction</p>
+                                <div className="flex justify-between mb-8">
+                                    {[1,2,3,4,5].map(n => (
+                                        <button key={n} onClick={() => setRating(n)} className={`h-12 w-12 rounded-2xl font-black text-xl transition-all ${rating === n ? 'bg-indigo-500 text-white scale-125' : 'bg-white/10 text-white/40'}`}>{n}</button>
+                                    ))}
+                                </div>
+                                <button onClick={handleFinish} className="w-full bg-white text-indigo-900 py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition">SUBMIT</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- REPORTS: LIVE ANALYTICS ---
+        function ReportsView({ db }) {
+            const stats = useMemo(() => {
+                const map = {};
+                db.responses.forEach(r => {
+                    if(!map[r.catName]) map[r.catName] = { count: 0, sum: 0, root: r.rootName };
+                    map[r.catName].count++;
+                    map[r.catName].sum += r.rating;
+                });
+                return Object.entries(map).map(([name, v]) => ({ name, root: v.root, count: v.count, avg: (v.sum / v.count).toFixed(1) }));
+            }, [db.responses]);
+
+            const downloadPDF = () => {
+                const element = document.getElementById('pdf-report');
+                html2pdf().from(element).set({ margin: 10, filename: 'SurveyResults.pdf', html2canvas: { scale: 2 } }).save();
+            };
+
+            return (
+                <div id="pdf-report" className="animate-in slide-in-from-right-4 duration-300">
+                    <div className="flex justify-between items-end mb-8">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900">Analytics</h2>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{db.responses.length} Total Submissions</p>
+                        </div>
+                        <button onClick={downloadPDF} className="bg-slate-100 p-2 rounded-lg text-xl" title="Save PDF">📥</button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {stats.map(s => (
+                            <div key={s.name} className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm flex justify-between items-center">
+                                <div>
+                                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{s.root}</span>
+                                    <h4 className="font-bold text-slate-800 text-lg">{s.name}</h4>
+                                    <p className="text-xs text-slate-400 font-medium">{s.count} responses collected</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-3xl font-black text-indigo-600">{s.avg}</div>
+                                    <div className="text-[10px] font-bold text-slate-300 uppercase">Avg Score</div>
+                                </div>
+                            </div>
+                        ))}
+                        {stats.length === 0 && (
+                            <div className="text-center py-20 text-slate-300 italic">No responses to analyze yet.</div>
+                        )}
+                    </div>
                 </div>
             );
         }

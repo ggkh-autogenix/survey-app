@@ -1,6 +1,6 @@
 # 📊 SurveyEngine Pro - Interactive POC
 
-A professional, hierarchical survey management system designed for real-time feedback and performance analytics. This Proof of Concept (POC) demonstrates a fully reactive "Single Page Application" (SPA) that works entirely in the browser.
+A professional, hierarchical survey management system designed for real-time feedback and performance analytics. This Proof of Concept (POC) demonstrates a fully reactive "Single Page Application" (SPA) that works entirely in the browser.( only for POC ) once agreement si done we can do mobile app  with proper AUTHNAUTHZ and will dpeloy in AWS , with offline and online sync features 
 
 ---
 

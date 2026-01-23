@@ -48,7 +48,7 @@
 
                     <main className="flex-grow overflow-y-auto px-4 pt-6 pb-24">
                         {view === 'admin' && <AdminPanel db={db} setDb={setDb} />}
-                        {view === 'user' && <UserSurvey db={db} setDb={setDb} />}
+                        {view === 'user' && <UserSurvey db={db} setDb={setDb} setView={setView} />}
                         {view === 'reports' && <ReportsView db={db} setDb={setDb} />}
                     </main>
 
@@ -72,26 +72,30 @@
         function AdminPanel({ db, setDb }) {
             const [selectedId, setSelectedId] = useState(null);
 
+            const getDepth = (id) => {
+                let depth = 1;
+                let current = db.categories.find(c => c.id === id);
+                while (current && current.parentId) {
+                    depth++;
+                    current = db.categories.find(c => c.id === current.parentId);
+                }
+                return depth;
+            };
+
             const addNode = (parentId = null) => {
                 const name = prompt("Name this Category/Sub:");
                 if(name) setDb({...db, categories: [...db.categories, { id: 'c'+Date.now(), name, parentId }]});
             };
 
-            // RECURSIVE DELETE: Deletes category + all descendants + all linked questions
             const deleteNode = (id) => {
                 if(!confirm("Are you sure? This deletes all sub-categories and questions inside.")) return;
-                
                 const getDescendants = (catId) => {
                     let children = db.categories.filter(c => c.parentId === catId);
                     let ids = [catId];
-                    children.forEach(child => {
-                        ids = [...ids, ...getDescendants(child.id)];
-                    });
+                    children.forEach(child => { ids = [...ids, ...getDescendants(child.id)]; });
                     return ids;
                 };
-
                 const idsToDelete = getDescendants(id);
-                
                 setDb({
                     ...db,
                     categories: db.categories.filter(c => !idsToDelete.includes(c.id)),
@@ -103,42 +107,45 @@
             const addQuestion = (catId) => {
                 setDb({...db, questions: [...db.questions, { 
                     id: 'q'+Date.now(), categoryId: catId, text: "New Question", 
-                    choices: [{id:'ch1', text:'Good', value:'5'}, {id:'ch2', text:'Bad', value:'1'}] 
+                    choices: [{id:'ch1', text:'Yes', value:'5'}, {id:'ch2', text:'No', value:'1'}] 
                 }]});
             };
 
             const renderTree = (parentId = null) => {
-                return db.categories.filter(c => c.parentId === parentId).map(cat => (
-                    <div key={cat.id} className={parentId ? "tree-line" : "mt-2"}>
-                        <div className={`p-3 rounded-xl border flex justify-between items-center bg-white ${selectedId === cat.id ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200'}`} onClick={() => setSelectedId(cat.id)}>
-                            <span className="font-bold text-xs truncate mr-2">{cat.name}</span>
-                            <div className="flex gap-1 shrink-0">
-                                <button onClick={(e) => { e.stopPropagation(); addNode(cat.id); }} className="text-[8px] font-black bg-indigo-50 text-indigo-600 p-1.5 rounded">SUB</button>
-                                <button onClick={(e) => { e.stopPropagation(); deleteNode(cat.id); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1.5 rounded">🗑️</button>
+                return db.categories.filter(c => c.parentId === parentId).map(cat => {
+                    const depth = getDepth(cat.id);
+                    return (
+                        <div key={cat.id} className={parentId ? "tree-line" : "mt-2"}>
+                            <div className={`p-3 rounded-xl border flex justify-between items-center bg-white ${selectedId === cat.id ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200'}`} onClick={() => setSelectedId(cat.id)}>
+                                <span className="font-bold text-xs truncate mr-2">{cat.name}</span>
+                                <div className="flex gap-1 shrink-0">
+                                    {depth < 3 && (
+                                        <button onClick={(e) => { e.stopPropagation(); addNode(cat.id); }} className="text-[8px] font-black bg-indigo-50 text-indigo-600 p-1.5 rounded">SUB</button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); deleteNode(cat.id); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1.5 rounded">🗑️</button>
+                                </div>
                             </div>
+                            {renderTree(cat.id)}
                         </div>
-                        {renderTree(cat.id)}
-                    </div>
-                ));
+                    )
+                });
             };
 
             return (
                 <div className="space-y-6">
                     <div>
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Setup Tree</h2>
+                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Setup Tree (Max 3 Levels)</h2>
                             <button onClick={() => addNode(null)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ROOT</button>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 min-h-[100px]">{renderTree()}</div>
                     </div>
-
                     {selectedId && (
                         <div className="bg-slate-900 p-5 rounded-[2rem] text-white shadow-2xl animate-in slide-in-from-bottom-5">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-[10px] font-black uppercase tracking-widest opacity-60">Edit: {db.categories.find(c => c.id === selectedId)?.name}</h3>
-                                <button onClick={() => addQuestion(selectedId)} className="bg-emerald-500 text-white text-[9px] px-3 py-1 rounded-full font-black">+ ADD Q</button>
+                                <button onClick={() => addQuestion(selectedId)} className="bg-emerald-500 text-white text-[9px] px-3 py-1 rounded-full font-black">+ ADD YES/NO Q</button>
                             </div>
-                            
                             {db.questions.filter(q => q.categoryId === selectedId).map(q => (
                                 <div key={q.id} className="bg-white/5 p-4 rounded-2xl mb-4 border border-white/10 relative">
                                     <button onClick={() => setDb({...db, questions: db.questions.filter(x => x.id !== q.id)})} className="absolute top-2 right-2 text-red-400 text-xs">✕</button>
@@ -157,10 +164,11 @@
             );
         }
 
-        // --- USER & STATS VIEWS REMAIN STABLE ---
-        function UserSurvey({ db, setDb }) {
+        function UserSurvey({ db, setDb, setView }) {
             const [history, setHistory] = useState([]);
             const [rating, setRating] = useState(5);
+            const [isDone, setIsDone] = useState(false);
+            
             const currentId = history.length > 0 ? history[history.length - 1].id : null;
             const currentName = history.length > 0 ? history[history.length - 1].name : "Select Survey";
             const children = db.categories.filter(c => c.parentId === currentId);
@@ -168,45 +176,57 @@
 
             const submit = () => {
                 setDb({...db, responses: [...db.responses, { id: Date.now(), root: history[0].name, cat: currentName, rating }]});
-                alert("Done!"); setHistory([]);
+                setIsDone(true);
+            };
+
+            const reset = () => {
+                setHistory([]);
+                setIsDone(false);
             };
 
             return (
                 <div>
                     <div className="mb-6">
-                        {history.length > 0 && <button onClick={() => setHistory(history.slice(0, -1))} className="text-indigo-600 font-bold text-xs mb-2 block uppercase tracking-tighter">← Back</button>}
-                        <h2 className="text-2xl font-black text-slate-800 leading-tight">{currentName}</h2>
+                        {history.length > 0 && !isDone && <button onClick={() => setHistory(history.slice(0, -1))} className="text-indigo-600 font-bold text-xs mb-2 block uppercase tracking-tighter">← Back</button>}
+                        <h2 className="text-2xl font-black text-slate-800 leading-tight">{isDone ? "Thank You!" : currentName}</h2>
                     </div>
-                    <div className="space-y-3">
-                        {children.map(c => (
-                            <button key={c.id} onClick={() => setHistory([...history, c])} className="w-full p-5 bg-white border-2 border-slate-100 rounded-2xl text-left font-bold text-slate-700 active:scale-95 transition">
-                                {c.name}
-                            </button>
-                        ))}
-                    </div>
-                    {questions.length > 0 && (
-                        <div className="mt-8 space-y-8 pb-10">
-                            {questions.map(q => (
-                                <div key={q.id}>
-                                    <p className="font-bold text-slate-800 mb-4">{q.text}</p>
-                                    <div className="space-y-2">
-                                        {q.choices.map(ch => (
-                                            <label key={ch.id} className="flex items-center p-4 bg-slate-50 border rounded-2xl active:bg-indigo-50">
-                                                <input type="radio" name={q.id} className="h-5 w-5 accent-indigo-600 mr-3" />
-                                                <span className="font-bold text-slate-600 text-sm">{ch.text}</span>
-                                            </label>
-                                        ))}
+
+                    {!isDone ? (
+                        <>
+                            <div className="space-y-3">
+                                {children.map(c => (
+                                    <button key={c.id} onClick={() => setHistory([...history, c])} className="w-full p-5 bg-white border-2 border-slate-100 rounded-2xl text-left font-bold text-slate-700 active:scale-95 transition">
+                                        {c.name}
+                                    </button>
+                                ))}
+                            </div>
+                            {questions.length > 0 && (
+                                <div className="mt-8 space-y-8 pb-10">
+                                    {questions.map(q => (
+                                        <div key={q.id}>
+                                            <p className="font-bold text-slate-800 mb-4">{q.text}</p>
+                                            <div className="space-y-2">
+                                                {q.choices.map(ch => (
+                                                    <label key={ch.id} className="flex items-center p-4 bg-slate-50 border rounded-2xl active:bg-indigo-50">
+                                                        <input type="radio" name={q.id} onChange={() => setRating(parseInt(ch.value))} className="h-5 w-5 accent-indigo-600 mr-3" />
+                                                        <span className="font-bold text-slate-600 text-sm">{ch.text}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="bg-indigo-950 p-8 rounded-[2rem] text-white">
+                                        <button onClick={submit} className="w-full bg-white text-indigo-950 py-4 rounded-xl font-black">SUBMIT SURVEY</button>
                                     </div>
                                 </div>
-                            ))}
-                            <div className="bg-indigo-950 p-8 rounded-[2rem] text-white">
-                                <div className="flex justify-between mb-8">
-                                    {[1,2,3,4,5].map(n => (
-                                        <button key={n} onClick={()=>setRating(n)} className={`h-10 w-10 rounded-xl font-black transition ${rating===n ? 'bg-indigo-500 scale-125' : 'bg-white/10 opacity-30'}`}>{n}</button>
-                                    ))}
-                                </div>
-                                <button onClick={submit} className="w-full bg-white text-indigo-950 py-4 rounded-xl font-black">SUBMIT</button>
-                            </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="space-y-4 text-center py-10">
+                            <div className="text-5xl mb-4">✅</div>
+                            <p className="font-bold text-slate-500 italic">Response recorded for {currentName}</p>
+                            <button onClick={() => setView('reports')} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black">VIEW STATS FOR {currentName.toUpperCase()}</button>
+                            <button onClick={reset} className="w-full bg-slate-100 text-slate-600 py-4 rounded-xl font-black">START NEW SURVEY</button>
                         </div>
                     )}
                 </div>
@@ -226,6 +246,7 @@
             return (
                 <div className="space-y-4">
                     <h2 className="text-2xl font-black mb-6 text-slate-800">Analytics</h2>
+                    {stats.length === 0 && <p className="text-slate-400 text-center py-10">No data yet.</p>}
                     {stats.map(s => (
                         <div key={s.name} className="p-5 bg-white border border-slate-100 rounded-3xl flex justify-between items-center shadow-sm">
                             <div>
@@ -234,11 +255,11 @@
                             </div>
                             <div className="text-right">
                                 <div className="text-2xl font-black text-indigo-600">{s.avg}</div>
-                                <div className="text-[8px] font-black text-slate-300 uppercase">Avg Rating</div>
+                                <div className="text-[8px] font-black text-slate-300 uppercase">Avg Score</div>
                             </div>
                         </div>
                     ))}
-                    <button onClick={() => setDb({...db, responses:[]})} className="w-full mt-10 text-[8px] text-slate-300 font-bold uppercase tracking-widest underline">Reset Analytics Only</button>
+                    <button onClick={() => {if(confirm("Clear all stats?")) setDb({...db, responses:[]})}} className="w-full mt-10 text-[8px] text-slate-300 font-bold uppercase tracking-widest underline">Reset Analytics Only</button>
                 </div>
             );
         }

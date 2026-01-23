@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SurveyEngine Pro - Full Control</title>
+    <title>SurveyEngine Pro - Root Reporting</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,13 +21,12 @@
         .tree-line { border-left: 2px dashed #cbd5e1; margin-left: 0.5rem; padding-left: 0.75rem; position: relative; }
         .tree-line::before { content: ""; position: absolute; top: 1.2rem; left: 0; width: 0.5rem; border-top: 2px dashed #cbd5e1; }
 
-        /* PDF/Print Styles */
         @media print {
             nav, header, button, .no-print { display: none !important; }
-            body { background: white; }
+            body { background: white; padding: 0; }
             .print-only { display: block !important; }
-            .print-card { border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; margin-bottom: 10px; break-inside: avoid; }
-            main { padding: 0 !important; margin: 0 !important; }
+            .print-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin-bottom: 8px; break-inside: avoid; display: flex; justify-content: space-between; }
+            main { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
         }
         .print-only { display: none; }
     </style>
@@ -37,10 +36,10 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const DB_KEY = 'SURVEY_CONTROL_V5';
+        const DB_KEY = 'SURVEY_CONTROL_V6';
 
         function App() {
-            const [view, setView] = useState('admin');
+            const [view, setView] = useState('user');
             const [db, setDb] = useState(() => {
                 const saved = localStorage.getItem(DB_KEY);
                 return saved ? JSON.parse(saved) : { categories: [], questions: [], responses: [] };
@@ -85,33 +84,13 @@
             const getDepth = (id) => {
                 let depth = 1;
                 let current = db.categories.find(c => c.id === id);
-                while (current && current.parentId) {
-                    depth++;
-                    current = db.categories.find(c => c.id === current.parentId);
-                }
+                while (current && current.parentId) { depth++; current = db.categories.find(c => c.id === current.parentId); }
                 return depth;
             };
 
             const addNode = (parentId = null) => {
                 const name = prompt("Name this Category/Sub:");
                 if(name) setDb({...db, categories: [...db.categories, { id: 'c'+Date.now(), name, parentId }]});
-            };
-
-            const deleteNode = (id) => {
-                if(!confirm("Are you sure? This deletes all sub-categories and questions inside.")) return;
-                const getDescendants = (catId) => {
-                    let children = db.categories.filter(c => c.parentId === catId);
-                    let ids = [catId];
-                    children.forEach(child => { ids = [...ids, ...getDescendants(child.id)]; });
-                    return ids;
-                };
-                const idsToDelete = getDescendants(id);
-                setDb({
-                    ...db,
-                    categories: db.categories.filter(c => !idsToDelete.includes(c.id)),
-                    questions: db.questions.filter(q => !idsToDelete.includes(q.categoryId))
-                });
-                if(idsToDelete.includes(selectedId)) setSelectedId(null);
             };
 
             const addQuestion = (catId) => {
@@ -129,10 +108,8 @@
                             <div className={`p-3 rounded-xl border flex justify-between items-center bg-white ${selectedId === cat.id ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200'}`} onClick={() => setSelectedId(cat.id)}>
                                 <span className="font-bold text-xs truncate mr-2">{cat.name}</span>
                                 <div className="flex gap-1 shrink-0">
-                                    {depth < 3 && (
-                                        <button onClick={(e) => { e.stopPropagation(); addNode(cat.id); }} className="text-[8px] font-black bg-indigo-50 text-indigo-600 p-1.5 rounded">SUB</button>
-                                    )}
-                                    <button onClick={(e) => { e.stopPropagation(); deleteNode(cat.id); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1.5 rounded">🗑️</button>
+                                    {depth < 3 && <button onClick={(e) => { e.stopPropagation(); addNode(cat.id); }} className="text-[8px] font-black bg-indigo-50 text-indigo-600 p-1.5 rounded">SUB</button>}
+                                    <button onClick={(e) => { e.stopPropagation(); setDb({...db, categories: db.categories.filter(c => c.id !== cat.id)}); }} className="text-[8px] font-black bg-red-50 text-red-500 p-1.5 rounded">🗑️</button>
                                 </div>
                             </div>
                             {renderTree(cat.id)}
@@ -145,27 +122,20 @@
                 <div className="space-y-6">
                     <div>
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Setup Tree (Max 3 Levels)</h2>
+                            <h2 className="text-xs font-black uppercase text-slate-400 tracking-widest">Setup Tree</h2>
                             <button onClick={() => addNode(null)} className="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">+ ROOT</button>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 min-h-[100px]">{renderTree()}</div>
                     </div>
                     {selectedId && (
-                        <div className="bg-slate-900 p-5 rounded-[2rem] text-white shadow-2xl animate-in slide-in-from-bottom-5">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-60">Edit: {db.categories.find(c => c.id === selectedId)?.name}</h3>
-                                <button onClick={() => addQuestion(selectedId)} className="bg-emerald-500 text-white text-[9px] px-3 py-1 rounded-full font-black">+ ADD YES/NO Q</button>
-                            </div>
+                        <div className="bg-slate-900 p-5 rounded-[2rem] text-white shadow-2xl">
+                            <button onClick={() => addQuestion(selectedId)} className="w-full bg-emerald-500 py-2 rounded-xl text-[10px] font-black mb-4 uppercase">+ Add Question Here</button>
                             {db.questions.filter(q => q.categoryId === selectedId).map(q => (
-                                <div key={q.id} className="bg-white/5 p-4 rounded-2xl mb-4 border border-white/10 relative">
-                                    <button onClick={() => setDb({...db, questions: db.questions.filter(x => x.id !== q.id)})} className="absolute top-2 right-2 text-red-400 text-xs">✕</button>
-                                    <input className="bg-transparent w-full font-bold border-b border-white/20 pb-1 mb-3 outline-none" value={q.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, text: e.target.value} : item)})} />
-                                    {q.choices.map(ch => (
-                                        <div key={ch.id} className="flex gap-2 mb-1">
-                                            <input className="flex-grow text-[10px] bg-white/10 p-1 rounded" value={ch.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, choices: item.choices.map(c => c.id === ch.id ? {...c, text: e.target.value} : c)} : item)})} />
-                                            <input className="w-8 text-[10px] bg-indigo-500/20 p-1 rounded text-center" value={ch.value} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, choices: item.choices.map(c => c.id === ch.id ? {...c, value: e.target.value} : c)} : item)})} />
-                                        </div>
-                                    ))}
+                                <div key={q.id} className="bg-white/5 p-3 rounded-xl mb-2 border border-white/10 relative">
+                                    <input className="bg-transparent w-full font-bold text-sm border-b border-white/20 pb-1 mb-2 outline-none" value={q.text} onChange={(e) => setDb({...db, questions: db.questions.map(item => item.id === q.id ? {...item, text: e.target.value} : item)})} />
+                                    <div className="flex gap-2">
+                                        {q.choices.map(ch => <span key={ch.id} className="text-[9px] bg-white/10 px-2 py-1 rounded opacity-60">{ch.text}</span>)}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -181,96 +151,93 @@
             
             const currentId = history.length > 0 ? history[history.length - 1].id : null;
             const currentName = history.length > 0 ? history[history.length - 1].name : "Select Survey";
+            
             const children = db.categories.filter(c => c.parentId === currentId);
             const questions = db.questions.filter(q => q.categoryId === currentId);
 
-            const handleAnswer = (qId, val, qText) => {
-                setResponses(prev => ({ ...prev, [qId]: { text: qText, val: parseInt(val) } }));
-            };
+            // Report logic: Find all responses for THIS root survey
+            const rootResponses = useMemo(() => {
+                if(history.length === 0) return [];
+                return db.responses.filter(r => r.root === history[0].name);
+            }, [db.responses, history]);
 
             const submit = () => {
                 const values = Object.values(responses).map(r => r.val);
                 const avg = values.reduce((a, b) => a + b, 0) / (values.length || 1);
-                
                 setDb({...db, responses: [...db.responses, { 
-                    id: Date.now(), 
-                    root: history[0].name, 
-                    cat: currentName, 
-                    rating: avg,
-                    details: Object.values(responses) // Store for PDF
+                    id: Date.now(), root: history[0].name, cat: currentName, rating: avg, details: Object.values(responses) 
                 }]});
                 setIsDone(true);
-            };
-
-            const generatePDF = () => {
-                window.print();
             };
 
             return (
                 <div>
                     <div className="mb-6 no-print">
-                        {history.length > 0 && !isDone && <button onClick={() => setHistory(history.slice(0, -1))} className="text-indigo-600 font-bold text-xs mb-2 block uppercase tracking-tighter">← Back</button>}
-                        <h2 className="text-2xl font-black text-slate-800 leading-tight">{isDone ? "Survey Results" : currentName}</h2>
+                        {history.length > 0 && !isDone && (
+                            <div className="flex justify-between items-center mb-2">
+                                <button onClick={() => setHistory(history.slice(0, -1))} className="text-indigo-600 font-bold text-xs uppercase tracking-tighter">← Back</button>
+                                {history.length === 1 && rootResponses.length > 0 && (
+                                    <button onClick={() => window.print()} className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg font-black text-[9px] uppercase">Print Root Report 📥</button>
+                                )}
+                            </div>
+                        )}
+                        <h2 className="text-2xl font-black text-slate-800 leading-tight">{isDone ? "Sub-Category Done" : currentName}</h2>
                     </div>
 
                     {!isDone ? (
                         <>
                             <div className="space-y-3 no-print">
                                 {children.map(c => (
-                                    <button key={c.id} onClick={() => setHistory([...history, c])} className="w-full p-5 bg-white border-2 border-slate-100 rounded-2xl text-left font-bold text-slate-700 active:scale-95 transition">
-                                        {c.name}
+                                    <button key={c.id} onClick={() => setHistory([...history, c])} className="w-full p-5 bg-white border-2 border-slate-100 rounded-2xl text-left font-bold text-slate-700 active:scale-95 transition flex justify-between">
+                                        <span>{c.name}</span>
+                                        <span className="text-indigo-300">→</span>
                                     </button>
                                 ))}
                             </div>
-                            {questions.length > 0 && (
-                                <div className="mt-8 space-y-8 pb-10 no-print">
-                                    {questions.map(q => (
-                                        <div key={q.id}>
-                                            <p className="font-bold text-slate-800 mb-4">{q.text}</p>
-                                            <div className="space-y-2">
-                                                {q.choices.map(ch => (
-                                                    <label key={ch.id} className="flex items-center p-4 bg-slate-50 border rounded-2xl active:bg-indigo-50">
-                                                        <input type="radio" name={q.id} onChange={() => handleAnswer(q.id, ch.value, q.text)} className="h-5 w-5 accent-indigo-600 mr-3" />
-                                                        <span className="font-bold text-slate-600 text-sm">{ch.text}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <div className="bg-indigo-950 p-8 rounded-[2rem] text-white">
-                                        <button onClick={submit} className="w-full bg-white text-indigo-950 py-4 rounded-xl font-black">SUBMIT SURVEY</button>
+                            {questions.map(q => (
+                                <div key={q.id} className="mt-6 p-5 bg-slate-50 border rounded-2xl no-print">
+                                    <p className="font-bold text-slate-800 mb-4">{q.text}</p>
+                                    <div className="flex gap-3">
+                                        {q.choices.map(ch => (
+                                            <button key={ch.id} onClick={() => setResponses({...responses, [q.id]: {text: q.text, val: parseInt(ch.value)}})} 
+                                                className={`flex-grow py-3 rounded-xl font-black text-xs border-2 transition ${responses[q.id]?.val === parseInt(ch.value) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-400'}`}>
+                                                {ch.text.toUpperCase()}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
+                            ))}
+                            {questions.length > 0 && (
+                                <button onClick={submit} className="w-full mt-8 bg-indigo-950 text-white py-4 rounded-xl font-black no-print">FINISH SUB-CATEGORY</button>
                             )}
                         </>
                     ) : (
-                        <div className="space-y-4 py-4">
-                            {/* This section appears in the PDF */}
-                            <div className="print-only">
-                                <h1 className="text-xl font-black uppercase mb-2 border-b-2 pb-2">Survey Report: {currentName}</h1>
-                                <p className="text-xs mb-6">Generated on: {new Date().toLocaleString()}</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                {Object.values(responses).map((res, i) => (
-                                    <div key={i} className="print-card bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between">
-                                        <span className="font-bold text-slate-700">{res.text}</span>
-                                        <span className={`font-black ${res.val > 3 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                            {res.val > 3 ? 'YES' : 'NO'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="no-print pt-6 space-y-3">
-                                <button onClick={generatePDF} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black flex items-center justify-center gap-2">
-                                    <span>📥</span> GENERATE PDF REPORT
-                                </button>
-                                <button onClick={() => setView('reports')} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black">VIEW ALL ANALYTICS</button>
-                                <button onClick={() => { setHistory([]); setIsDone(false); setResponses({}); }} className="w-full bg-slate-100 text-slate-600 py-4 rounded-xl font-black">BACK TO HOME</button>
-                            </div>
+                        <div className="text-center py-10 no-print">
+                            <div className="text-5xl mb-4">⭐</div>
+                            <button onClick={() => { setIsDone(false); setHistory(history.slice(0,-1)); setResponses({}); }} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black mb-3">CONTINUE SURVEY</button>
+                            <button onClick={() => { setHistory([]); setIsDone(false); setResponses({}); }} className="w-full bg-slate-100 text-slate-600 py-4 rounded-xl font-black uppercase text-xs">Exit to Root</button>
                         </div>
                     )}
+
+                    {/* HIDDEN PRINT SECTION FOR ROOT REPORT */}
+                    <div className="print-only">
+                        <h1 className="text-2xl font-black border-b-4 border-indigo-950 pb-2 mb-2 uppercase">{history[0]?.name} - Full Report</h1>
+                        <p className="text-[10px] mb-6 opacity-50 uppercase font-bold">Comprehensive Root Audit • {new Date().toLocaleDateString()}</p>
+                        
+                        {rootResponses.map((r, idx) => (
+                            <div key={idx} className="mb-6">
+                                <h3 className="bg-slate-100 p-2 font-black text-sm uppercase mb-2">{r.cat}</h3>
+                                {r.details ? r.details.map((d, i) => (
+                                    <div key={i} className="print-card">
+                                        <span className="text-xs font-medium">{d.text}</span>
+                                        <span className={`text-xs font-black ${d.val > 3 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {d.val > 3 ? 'PASSED' : 'FAILED'}
+                                        </span>
+                                    </div>
+                                )) : <p className="text-xs italic opacity-50">Overall Rating: {r.rating}</p>}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             );
         }
@@ -282,18 +249,17 @@
                     if(!m[r.cat]) m[r.cat] = { count: 0, sum: 0, root: r.root };
                     m[r.cat].count++; m[r.cat].sum += r.rating;
                 });
-                return Object.entries(m).map(([name, v]) => ({ name, root: v.root, avg: (v.sum/v.count).toFixed(1), count: v.count }));
+                return Object.entries(m).map(([name, v]) => ({ name, root: v.root, avg: (v.sum/v.count).toFixed(1) }));
             }, [db.responses]);
 
             return (
                 <div className="space-y-4">
-                    <h2 className="text-2xl font-black mb-6 text-slate-800">Analytics</h2>
-                    {stats.length === 0 && <p className="text-slate-400 text-center py-10">No data yet.</p>}
+                    <h2 className="text-2xl font-black text-slate-800">Global Stats</h2>
                     {stats.map(s => (
                         <div key={s.name} className="p-5 bg-white border border-slate-100 rounded-3xl flex justify-between items-center shadow-sm">
                             <div>
                                 <span className="text-[8px] font-black text-indigo-500 uppercase">{s.root}</span>
-                                <h4 className="font-bold text-slate-800 text-sm leading-tight">{s.name}</h4>
+                                <h4 className="font-bold text-slate-800 text-sm">{s.name}</h4>
                             </div>
                             <div className="text-right">
                                 <div className="text-2xl font-black text-indigo-600">{s.avg}</div>
@@ -301,7 +267,6 @@
                             </div>
                         </div>
                     ))}
-                    <button onClick={() => {if(confirm("Clear all stats?")) setDb({...db, responses:[]})}} className="w-full mt-10 text-[8px] text-slate-300 font-bold uppercase tracking-widest underline no-print">Reset Analytics Only</button>
                 </div>
             );
         }
